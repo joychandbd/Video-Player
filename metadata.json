@@ -1,0 +1,6 @@
+{
+  "name": "Video Player",
+  "description": "A powerful feature-rich video player with gesture controls, subtitle customization, 200% audio boost, equalizer, decoders, and file manager.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
