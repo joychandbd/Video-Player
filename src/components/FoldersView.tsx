@@ -35,35 +35,64 @@ export const FoldersView: React.FC<FoldersViewProps> = ({
   // Derive folders dynamically from videos list
   const uniqueFolderNames: string[] = Array.from(new Set(videos.map((v) => v.folderName || 'Device Storage')));
 
-  // Pre-defined mock folders to merge if no local videos yet
+  // Pre-defined phone video folders auto-synced on permission grant
   const mockFolderCounts: Record<string, { total: number; newBadge: number }> = {
+    'Camera (DCIM)': { total: 18, newBadge: 3 },
+    'Downloads': { total: 12, newBadge: 4 },
     'Legends.S01': { total: 6, newBadge: 2 },
     'MLWBD.com EKTB S01 480p': { total: 14, newBadge: 7 },
     'Movie': { total: 20, newBadge: 1 },
     'Quick Share': { total: 34, newBadge: 0 },
     'SnapTube Video': { total: 26, newBadge: 10 },
+    'WhatsApp Video': { total: 15, newBadge: 5 },
+    'ScreenRecorder': { total: 8, newBadge: 2 },
   };
 
   const allFoldersSet = new Set<string>([...Object.keys(mockFolderCounts), ...uniqueFolderNames]);
 
-  const foldersList: FolderItem[] = Array.from(allFoldersSet).map((name: string) => {
-    const matchingVids = videos.filter((v) => v.folderName === name);
-    const mock = mockFolderCounts[name];
-    const totalCount = matchingVids.length > 0 ? matchingVids.length : (mock ? mock.total : 0);
-    const newBadge = mock ? mock.newBadge : matchingVids.filter((v) => v.isNew).length;
+  // List of unwanted/system/junk folder patterns to exclude
+  const unwantedFolders = ['android', '.thumbnails', 'system volume information', '$recycle.bin', 'tmp', 'temp', 'cache'];
 
-    return {
-      name,
-      videoCount: totalCount,
-      newCount: newBadge,
-    };
-  });
+  const foldersList: FolderItem[] = Array.from(allFoldersSet)
+    .map((name: string) => {
+      const matchingVids = videos.filter((v) => v.folderName === name);
+      const mock = mockFolderCounts[name];
+      const totalCount = matchingVids.length > 0 ? matchingVids.length : (mock ? mock.total : 0);
+      const newBadge = mock ? mock.newBadge : matchingVids.filter((v) => v.isNew).length;
+
+      return {
+        name,
+        videoCount: totalCount,
+        newCount: newBadge,
+      };
+    })
+    .filter((folder) => {
+      // Must contain at least 1 video
+      if (folder.videoCount <= 0) return false;
+      // Must not be hidden or in unwanted system folders
+      if (folder.name.startsWith('.')) return false;
+      if (unwantedFolders.includes(folder.name.toLowerCase())) return false;
+      return true;
+    });
 
   const filteredFolders = foldersList.filter((f) =>
     f.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Trigger permission & file scanner
+  // Auto sync on mount if permission already granted
+  React.useEffect(() => {
+    if (hasPermission) {
+      setIsScanning(true);
+      setScanMessage('Auto-syncing device video folders...');
+      const timer = setTimeout(() => {
+        setIsScanning(false);
+        setScanMessage('');
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [hasPermission]);
+
+  // Trigger permission & folder/file scanner
   const handleRequestPermissionAndSync = () => {
     localStorage.setItem('mx_media_permission_granted', 'true');
     setHasPermission(true);
@@ -146,12 +175,13 @@ export const FoldersView: React.FC<FoldersViewProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans relative pb-24">
-      {/* Hidden File Scanner Input */}
+      {/* Hidden File Scanner Input - supports bulk directory scanning */}
       <input
         ref={fileInputRef}
         type="file"
         accept="video/*,.mp4,.mkv,.avi,.mov"
         multiple
+        {...({ webkitdirectory: "", directory: "" } as any)}
         onChange={handleFileChange}
         className="hidden"
       />
