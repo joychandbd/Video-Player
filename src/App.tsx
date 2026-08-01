@@ -70,6 +70,94 @@ export default function App() {
     setVideos((prev) => prev.filter((v) => v.id !== videoId));
   };
 
+  // Rename video handler
+  const handleRenameVideo = (videoId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    setVideos((prev) =>
+      prev.map((v) => (v.id === videoId ? { ...v, title: newTitle.trim() } : v))
+    );
+  };
+
+  // Move video handler
+  const handleMoveVideo = (videoId: string, targetFolderName: string) => {
+    if (!targetFolderName.trim()) return;
+    setVideos((prev) =>
+      prev.map((v) =>
+        v.id === videoId ? { ...v, folderName: targetFolderName.trim() } : v
+      )
+    );
+  };
+
+  // Copy video handler
+  const handleCopyVideo = (videoId: string, targetFolderName: string) => {
+    if (!targetFolderName.trim()) return;
+    setVideos((prev) => {
+      const source = prev.find((v) => v.id === videoId);
+      if (!source) return prev;
+      const copyItem: VideoItem = {
+        ...source,
+        id: `copy-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        title: `Copy of ${source.title}`,
+        folderName: targetFolderName.trim(),
+        isNew: true,
+      };
+      return [copyItem, ...prev];
+    });
+  };
+
+  // Rename folder handler
+  const handleRenameFolder = (oldFolderName: string, newFolderName: string) => {
+    if (!newFolderName.trim() || oldFolderName === newFolderName) return;
+    setVideos((prev) =>
+      prev.map((v) =>
+        v.folderName === oldFolderName
+          ? { ...v, folderName: newFolderName.trim() }
+          : v
+      )
+    );
+    if (selectedFolderName === oldFolderName) {
+      setSelectedFolderName(newFolderName.trim());
+    }
+  };
+
+  // Delete folder handler
+  const handleDeleteFolder = (folderName: string) => {
+    setVideos((prev) => prev.filter((v) => v.folderName !== folderName));
+  };
+
+  // Open external file ("Open With" file manager intent handler)
+  const handlePlayDirectFile = (file: File) => {
+    const fileUrl = URL.createObjectURL(file);
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(1);
+    const formattedSize = parseFloat(sizeInMB) > 1024 
+      ? `${(parseFloat(sizeInMB) / 1024).toFixed(1)} GB` 
+      : `${sizeInMB} MB`;
+
+    const directVideo: VideoItem = {
+      id: `ext-${Date.now()}`,
+      title: file.name,
+      url: fileUrl,
+      poster: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&auto=format&fit=crop&q=80',
+      duration: 300,
+      size: formattedSize,
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      folderName: 'External Videos',
+      decoder: 'HW+',
+      resolution: '1080p',
+      codec: 'H.264 / AAC',
+      progress: 0,
+      completed: false,
+      isNew: true,
+      isPrivate: false,
+      subtitles: [],
+      audioTracks: [{ id: 'a1', label: 'Default Track', language: 'en' }]
+    };
+
+    setVideos((prev) => [directVideo, ...prev]);
+    setPlayingVideo(directVideo);
+    setActiveScreen('player');
+  };
+
   // Handle local videos auto sync import
   const handleImportLocalVideos = (importedVideos: VideoItem[]) => {
     setVideos((prev) => {
@@ -95,6 +183,9 @@ export default function App() {
             }
           }}
           onImportLocalVideos={handleImportLocalVideos}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFolder={handleDeleteFolder}
+          onPlayDirectFile={handlePlayDirectFile}
         />
       )}
 
@@ -107,6 +198,9 @@ export default function App() {
           onBack={() => setActiveScreen('folders')}
           onPlayVideo={handlePlayVideo}
           onDeleteVideo={handleDeleteVideo}
+          onRenameVideo={handleRenameVideo}
+          onMoveVideo={handleMoveVideo}
+          onCopyVideo={handleCopyVideo}
         />
       )}
 
